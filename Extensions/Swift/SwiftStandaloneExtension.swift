@@ -2,15 +2,18 @@ import Foundation
 import ExtensionFoundation
 
 import ChimeKit
+import Extendable
 
 @main
 final class SwiftStandaloneExtension: ChimeExtension {
-	private let localExtension: StandaloneExtension<SwiftExtension>
+	@InitializerTransferred private var localExtension: StandaloneExtension<SwiftExtension>
 
-	required nonisolated init() {
-		self.localExtension = MainActor.assumeIsolated {
-			StandaloneExtension(extensionProvider: { SwiftExtension(host: $0) })
-		}
+	nonisolated init() {
+		self._localExtension = InitializerTransferred(mainActorProvider: {
+			StandaloneExtension(extensionProvider: { host in
+				SwiftExtension(host: host)
+			})
+		})
 	}
 
 	func acceptHostConnection(_ host: HostProtocol) throws {
@@ -25,10 +28,9 @@ extension SwiftStandaloneExtension {
 		}
 	}
 
-	var applicationService: ApplicationService {
+	var applicationService: some ApplicationService {
 		get throws {
 			return try localExtension.applicationService
 		}
 	}
 }
-

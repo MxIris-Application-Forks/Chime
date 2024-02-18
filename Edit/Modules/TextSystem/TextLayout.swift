@@ -10,6 +10,7 @@ public struct TextLayout {
 	}
 
 	public let visibleRect: () -> NSRect
+	public let visibleRange: () -> NSRange
 	public let lineFragmentsInRect: (NSRect) -> [LineFragment]
 	public let lineFragmentsInRange: (NSRange) -> [LineFragment]
 }
@@ -94,11 +95,11 @@ extension NSTextLayoutFragment {
 extension TextLayout {
 	@MainActor
 	public init(textView: NSTextView) {
-		guard let textLayoutManager = textView.textLayoutManager else {
-			fatalError("This only supports TextKit 2 views")
+		if let textLayoutManager = textView.textLayoutManager {
+			self.init(textLayoutManager: textLayoutManager)
+		} else {
+			self.init(layoutManager: textView.layoutManager!, container: textView.textContainer!)
 		}
-
-		self.init(textLayoutManager: textLayoutManager)
 	}
 
 	@MainActor
@@ -106,6 +107,16 @@ extension TextLayout {
 		self.init(
 			visibleRect: {
 				textLayoutManager.textViewportLayoutController.viewportBounds
+			},
+			visibleRange: {
+				guard
+					let contentManager = textLayoutManager.textContentManager,
+					let textRange = textLayoutManager.textViewportLayoutController.viewportRange
+				else {
+					return .zero
+				}
+
+				return NSRange(textRange, provider: contentManager)
 			},
 			lineFragmentsInRect: { rect in
 				guard let contentManager = textLayoutManager.textContentManager else { return [] }
@@ -145,6 +156,32 @@ extension TextLayout {
 				}
 
 				return fragments
+			}
+		)
+	}
+
+	@MainActor
+	public init(layoutManager: NSLayoutManager, container: NSTextContainer) {
+		self.init(
+			visibleRect: {
+				container.textView!.visibleRect
+			},
+			visibleRange: {
+				let view = container.textView!
+
+				let origin = view.textContainerOrigin
+				let offsetRect = view.visibleRect.offsetBy(dx: -origin.x, dy: -origin.y)
+
+				let glyphRange = layoutManager.glyphRange(forBoundingRect: offsetRect, in: container)
+
+				return layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+
+			},
+			lineFragmentsInRect: { rect in
+				return []
+			},
+			lineFragmentsInRange: { range in
+				return []
 			}
 		)
 	}

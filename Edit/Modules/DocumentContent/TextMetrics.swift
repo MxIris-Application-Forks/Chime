@@ -2,7 +2,7 @@ import Foundation
 
 import Rearrange
 import RelativeCollections
-import Neon
+import RangeState
 
 extension RelativeList {
 	func replaceSubrange<Elements>(_ range: Range<Index>, with newElements: Elements) where WeightedValue == Elements.Element, Elements : Sequence {
@@ -55,20 +55,22 @@ public final class TextMetrics {
 		case location(Int, fill: RangeFillMode)
 		case index(Int, fill: RangeFillMode)
 		case entireDocument(fill: RangeFillMode)
+		case processed
 	}
 
 	private let invalidator = RangeInvalidationBuffer()
 	private lazy var rangeProcessor = Processor(
 		configuration: .init(
 			lengthProvider: { [storage] in storage.currentLength },
-			changeHandler: { self.didChange($0) }
+			changeHandler: { self.didChange($0, completion: $1) }
 		)
 	)
 
 	private let parser = LineParser()
 //	private let lineList = List()
 	private var lineList = List()
-	private let storage: Storage
+	let storage: Storage
+	private var thing: Int = 0
 
 	public init(storage: Storage) {
 		self.storage = storage
@@ -86,9 +88,10 @@ public final class TextMetrics {
 
 	public var valueProvider: ValueProvider {
 		.init(
-			processor: self,
-			lazyProcessor: rangeProcessor,
-			inputTransformer: { self.transformQuery($0) }
+			rangeProcessor: rangeProcessor,
+			inputTransformer: transformQuery,
+			syncValue: { _ in self },
+			asyncValue: { _ in self }
 		)
 	}
 
@@ -112,6 +115,8 @@ public final class TextMetrics {
 			return (target, fill)
 		case let .entireDocument(fill: fill):
 			return (storage.currentLength, fill)
+		case .processed:
+			return (rangeProcessor.maximumProcessedLocation ?? 0, .none)
 		}
 	}
 
@@ -155,9 +160,9 @@ public final class TextMetrics {
 		get { invalidator.invalidationHandler }
 		set {
 			invalidator.invalidationHandler = { [rangeProcessor] in
-				let transformedSet = rangeProcessor.transformSetToCurrent($0)
+				let target = $0.apply(mutations: rangeProcessor.pendingMutations)
 
-				newValue(transformedSet)
+				newValue(target)
 			}
 		}
 	}
@@ -173,7 +178,7 @@ extension TextMetrics {
 	/// Apply an effective change.
 	///
 	/// This is invoked lazily by `rangeProcessor`.
-	private func didChange(_ mutation: RangeMutation) {
+	private func didChange(_ mutation: RangeMutation, completion: @escaping @MainActor () -> Void) {
 		let limit = mutation.postApplyLimit
 		let range = mutation.range
 		let delta = mutation.delta
@@ -202,7 +207,7 @@ extension TextMetrics {
 		let indexOffset = lowerIndex ?? 0
 		let includeLastLine = affectedRange.max == limit
 
-		DispatchQueue.global().async {
+		DispatchQueue.global().asyncUnsafe {
 			let newLines = self.parser.parseLines(in: substring, indexOffset: indexOffset, locationOffset: affectedRange.location, includeLastLine: includeLastLine)
 
 			let replacementRange = replacementLower..<replacementUpper
@@ -211,9 +216,9 @@ extension TextMetrics {
 
 			DispatchQueue.main.async {
 				self.lineList.replaceSubrange(replacementRange, with: weightedValues)
-					
-				self.rangeProcessor.completeContentChanged(mutation)
-				self.invalidator.invalidate(affectedRange)
+
+				completion()
+				self.invalidator.invalidate(.range(affectedRange))
 			}
 		}
 	}
@@ -221,7 +226,7 @@ extension TextMetrics {
 
 extension TextMetrics {
 	private func firstLineIndex(after location: Int) -> Int? {
-		lineList.firstIndex { record in
+		lineList.binarySearch { record, _ in
 			location < record.dependency
 		}
 	}
