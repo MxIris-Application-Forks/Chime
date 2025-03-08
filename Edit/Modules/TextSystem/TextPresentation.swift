@@ -1,7 +1,7 @@
-import AppKit
 import Foundation
 
-import Rearrange
+import Glyph
+import NSUI
 
 public struct TextPresentation {
 	public let applyRenderingStyle: ([NSAttributedString.Key : Any], NSRange) -> Void
@@ -9,45 +9,26 @@ public struct TextPresentation {
 
 extension TextPresentation {
 	@MainActor
-	public init(textView: NSTextView) {
-		if let textLayoutManager = textView.textLayoutManager {
-			self.init(textLayoutManager: textLayoutManager)
-		} else {
-			self.init(layoutManager: textView.layoutManager!)
-		}
-	}
-	
-	@MainActor
-	public init(textLayoutManager: NSTextLayoutManager) {
+	public init(textView: NSUITextView) {
 		self.init(
 			applyRenderingStyle: { attrs, range in
-				guard
-					let contentManager = textLayoutManager.textContentManager,
-					let textRange = NSTextRange(range, provider: contentManager)
-				else {
-					return
+				// rendering attributes are less powerful but much less expensive
+//				textView.setRenderingAttributes(attrs, for: range)
+
+				guard let storage = textView.textStorage else {
+					fatalError("A few without storage is unsupported")
 				}
 
-				let textView = textLayoutManager.textContainer?.textView
+//				let selection = textView.selectedRange()
 
-				let selection = textView?.selectedRanges
-
-				textLayoutManager.setRenderingAttributes(attrs, for: textRange)
-
-				textView?.selectedRanges = [NSValue(range: range)]
-
-				if let selection {
-					textView?.selectedRanges = selection
+				let effectiveAttrs = attrs.merging(textView.typingAttributes) { lhs, rhs in
+					lhs
 				}
-			}
-		)
-	}
 
-	@MainActor
-	public init(layoutManager: NSLayoutManager) {
-		self.init(
-			applyRenderingStyle: { attrs, range in
-				layoutManager.setTemporaryAttributes(attrs, forCharacterRange: range)
+				storage.setAttributes(effectiveAttrs, range: range)
+//
+//				textView.setSelectedRange(range)
+//				textView.setSelectedRange(selection)
 			}
 		)
 	}

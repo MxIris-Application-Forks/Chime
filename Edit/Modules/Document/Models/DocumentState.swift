@@ -4,7 +4,6 @@ import UniformTypeIdentifiers
 import ChimeKit
 import DocumentContent
 
-@MainActor
 public struct DocumentState {
 	public internal(set) var context: DocumentContext
 	public private(set) var contentId: DocumentContentIdentity
@@ -44,7 +43,7 @@ extension DocumentState {
 		let uti: UTType
 
 		if let url = url {
-			uti = UTType.resolveType(with: typeName, url: url) ?? .plainText
+			uti = (try? url.resolvedContentType) ?? .plainText
 		} else {
 			uti = context.uti
 		}

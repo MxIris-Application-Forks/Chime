@@ -36,7 +36,7 @@ extension Line {
 
 @MainActor
 public final class TextMetrics {
-	public typealias ValueProvider = HybridValueProvider<Query, TextMetrics>
+	public typealias ValueProvider = HybridSyncAsyncValueProvider<Query, TextMetrics, Never>
 
 	public nonisolated static let invalidationSetKey = "set"
 	public nonisolated static let textMetricsDidChangeNotification = Notification.Name("textMetricsDidChangeNotification")
@@ -88,6 +88,7 @@ public final class TextMetrics {
 
 	public var valueProvider: ValueProvider {
 		.init(
+			isolation: MainActor.shared,
 			rangeProcessor: rangeProcessor,
 			inputTransformer: transformQuery,
 			syncValue: { _ in self },
@@ -240,5 +241,31 @@ extension TextMetrics {
 
 		// have to adjust the index around here because we used reversed()
 		return lineList.index(before: descIdx.base)
+	}
+}
+
+extension TextMetrics {
+	public func lineSpan(for range: NSRange, mode: RangeFillMode = .none) -> (Line, Line)? {
+		let max = range.upperBound
+		let min = range.lowerBound
+
+		guard rangeProcessor.processLocation(max, mode: mode) else {
+			return nil
+		}
+
+		guard let start = line(for: min) else {
+			return nil
+		}
+
+		// just skip a lookup if we can
+		if start.range.contains(max) {
+			return (start, start)
+		}
+
+		guard let end = line(for: max) else {
+			return nil
+		}
+
+		return (start, end)
 	}
 }

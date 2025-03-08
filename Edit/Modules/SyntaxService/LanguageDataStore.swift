@@ -1,8 +1,10 @@
 import Foundation
+import OSLog
 import UniformTypeIdentifiers
 
 import RangeState
 import SwiftTreeSitter
+import Utility
 
 extension UTType {
 	static let markdownInline = UTType(importedAs: "net.daringfireball.markdown.inline", conformingTo: .markdown)
@@ -14,12 +16,17 @@ public final class LanguageDataStore {
 	public static let global = LanguageDataStore()
 	
 	private var configurationCache = [UTType : LanguageConfiguration]()
-	private var profileCache = [UTType : LanguageProfile]()
+	private var profileCache: [UTType : LanguageProfile]
 	private var loadingSet = Set<String>()
+	private let logger = Logger(type: LanguageDataStore.self)
 
 	public var configurationLoaded: (String) -> Void = { _ in }
 
 	public init() {
+		// prime the cache for the common case
+		self.profileCache = [
+			.plainText: LanguageProfile.genericProfile
+		]
 	}
 
 	public func profile(for utType: UTType) -> LanguageProfile {
@@ -36,33 +43,31 @@ public final class LanguageDataStore {
 }
 
 extension LanguageDataStore {
-	private static func normalizeLanguageName(_ identifier: String) -> String {
-		identifier.lowercased().replacingOccurrences(of: "-", with: "_")
-	}
+	private func languageDocumentType(from identifier: String) -> UTType {
+		if let lang = RootLanguage(rawValue: identifier) {
+			return lang.typeIdentifier
+		}
 
-	private static func languageDocumentType(from identifier: String) -> UTType {
-		let name = Self.normalizeLanguageName(identifier)
+		// use the same normalization rules, but check for non-root languages
+		let name = RootLanguage.normalizeLanguageName(identifier)
 
 		switch name {
-		case "swift":
-			return .swiftSource
-		case "markdown":
-			return .markdown
 		case "markdown_inline":
 			return .markdownInline
 		default:
+			logger.warning("Unhandled language name: \(identifier, privacy: .public)")
 			return .plainText
 		}
 	}
 
 	private func profile(for identifier: String) -> LanguageProfile {
-		let utType = Self.languageDocumentType(from: identifier)
+		let utType = languageDocumentType(from: identifier)
 
 		return profile(for: utType)
 	}
 
-	public func languageConfiguration(with identifier: String) -> LanguageConfiguration? {
-		let utType = LanguageDataStore.languageDocumentType(from: identifier)
+	public func languageConfiguration(with identifier: String, background: Bool = true) -> LanguageConfiguration? {
+		let utType = languageDocumentType(from: identifier)
 
 		// shortcut this
 		if utType == .plainText {
@@ -73,8 +78,30 @@ extension LanguageDataStore {
 			return value
 		}
 
-		Task {
-			_ = try await loadLanguageConfiguration(with: utType, identifier: identifier)
+		if background == false {
+			if let value = configurationCache[utType] {
+				return value
+			}
+
+			let profile = profile(for: utType)
+
+			let config = try? profile.load()
+
+			self.configurationCache[utType] = config
+
+			return config
+		}
+
+		Task<Void, Never> {
+			logger.info("Beginning background language config loading for \(identifier, privacy: .public)")
+
+			do {
+				_ = try await loadLanguageConfiguration(with: utType, identifier: identifier)
+				
+				logger.info("Load complete for \(identifier, privacy: .public)")
+			} catch {
+				logger.error("Failed to load config for \(identifier, privacy: .public), \(error, privacy: .public)")
+			}
 		}
 
 		return nil
@@ -94,5 +121,11 @@ extension LanguageDataStore {
 		configurationLoaded(identifier)
 
 		return config
+	}
+
+	public func loadLanguageConfiguration(with utType: UTType) async throws -> LanguageConfiguration? {
+		let profile = profile(for: utType)
+
+		return try await loadLanguageConfiguration(with: utType, identifier: profile.name)
 	}
 }

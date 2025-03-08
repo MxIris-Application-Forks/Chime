@@ -11,6 +11,7 @@ import Rearrange
 import SyntaxService
 import TextSystem
 import Theme
+import ThemePark
 
 @MainActor
 final class LowlightTokenProvider {
@@ -33,11 +34,9 @@ final class LowlightTokenProvider {
 		let start = range.location
 		let neonTokens = output.tokens.map {
 			let shiftedRange = $0.range.shifted(by: start)!
-
-			return Neon.Token(name: $0.name, range: shiftedRange)
+			
+			return Neon.Token(name: $0.element.treeSitterHighlightName, range: shiftedRange)
 		}
-
-		print("fallback")
 
 		return .init(tokens: neonTokens)
 	}
@@ -57,17 +56,23 @@ final class LowlightTokenProvider {
 
 	private func language(for utType: UTType) -> Language? {
 		if utType.conforms(to: .goSource) {
-			return Language(keywords: ["import", "func", "const", "for", "var", "if", "return"], symbols: [])
+			return Language(patterns: [])
+		}
+
+		if utType.conforms(to: .swiftSource) {
+			return Language.swift
 		}
 
 		if utType.conforms(to: .markdown) {
-			return Language(keywords: [], symbols: ["#"])
+//			return Language(keywords: [], symbols: ["#"])
+			return Language(patterns: [])
 		}
 
 		return nil
 	}
 }
 
+/// Manages syntax highlighting state.
 @MainActor
 public final class Highlighter<Service: TokenService> {
 	typealias Styler = ThreePhaseTextSystemStyler<TextViewSystemNeonInterface>
@@ -89,15 +94,17 @@ public final class Highlighter<Service: TokenService> {
 		self.textSystem = textSystem
 		self.tokenServiceWrapper = TokenServiceWrapper(textSystem: textSystem)
 		self.lowlightTokenProvider = LowlightTokenProvider(textSystem: textSystem)
+
+		// this is using the same style source for all tyoes of providers and I don't think that makes sense
 		self.styleSource = TokenStyleSource()
 
 		let interface = TextViewSystemNeonInterface(textSystem: textSystem, styleProvider: styleSource.tokenStyle)
 
 		let secondary: Styler.SecondaryValidationProvider = { [tokenServiceWrapper] in
-			print("secondary")
 			return await tokenServiceWrapper.tokens(for: $0)
 		}
 
+		// Don't forget about `TokenProvider.none` and `asyncOnlyNone` when debugging here. They are handy!
 		self.styler = ThreePhaseTextSystemStyler(
 			textSystem: interface,
 			tokenProvider: syntaxService.tokenProvider,
@@ -110,24 +117,37 @@ public final class Highlighter<Service: TokenService> {
 		]
 
 		invalidatorBuffer.invalidationHandler = { [unowned self] target in
-			self.invalidate(target)
+			self.applyInvalidation(target)
 		}
 	}
 
 	public func invalidate(textTarget target: TextTarget) {
 		let query = TextMetrics.Query(textTarget: target, fill: .optional, useEntireDocument: false)
 		guard let metrics = textSystem.textMetrics.valueProvider.sync(query) else {
+			invalidate(.all)
 			return
 		}
 
 		guard let rangeTarget = RangeTarget(textTarget: target, metrics: metrics) else {
+			invalidate(.all)
 			return
 		}
 
 		invalidate(rangeTarget)
 	}
 	
-	func invalidate(_ target: RangeTarget) {
+	public func invalidate(_ target: RangeTarget) {
+		invalidatorBuffer.invalidate(target)
+	}
+
+	private func relayInvalidation(_ target: RangeTarget) {
+		styler.invalidate(target)
+
+		// only re-validate what is currently visible
+		visibleContentDidChange()
+	}
+	
+	private func applyInvalidation(_ target: RangeTarget) {
 		guard visualizeInvalidations else {
 			relayInvalidation(target)
 			return
@@ -149,19 +169,27 @@ public final class Highlighter<Service: TokenService> {
 		}
 	}
 
-	private func relayInvalidation(_ target: RangeTarget) {
-		styler.invalidate(target)
-
-		styler.validate()
-	}
-
 	public func visibleContentDidChange() {
+		let visibleSet = textSystem.textLayout.visibleSet()
+
+//		styler.validate(RangeTarget.set(visibleSet))
 		styler.validate()
 	}
 
-	public func updateTheme(_ theme: Theme, context: Theme.Context) {
+	public var name: String? {
+		get { styler.name }
+		set { styler.name = newValue }
+	}
+
+	public func updateTheme(_ theme: Theme, context: Query.Context) {
 		styleSource.updateTheme(theme, context: context)
-		invalidate(RangeTarget.all)
+
+		print("about to do something inefficient")
+		let fullRange = NSRange(0..<textSystem.storage.currentLength)
+		textSystem.textPresentation.applyRenderingStyle([:], fullRange)
+
+		styler.invalidate(.all)
+		styler.validate()
 	}
 
 	public var tokenService: Service? {
@@ -184,18 +212,13 @@ public final class Highlighter<Service: TokenService> {
 
 	public var storageMonitor: TextStorageMonitor {
 		.init(
-			willApplyMutations: { _ in },
-			didApplyMutations: { self.didApplyMutations($0) },
-			didCompleteMutations: { _ in }
+			willApplyMutation: { _ in },
+			didApplyMutation: { self.didApplyMutation($0) }
 		)
 		.withInvalidationBuffer(invalidatorBuffer)
 	}
 
-	private func didApplyMutations(_ mutations: [TextStorageMutation]) {
-		let stringMutations = mutations.flatMap({ $0.stringMutations })
-
-		for mutation in stringMutations {
-			styler.didChangeContent(in: mutation.range, delta: mutation.delta)
-		}
+	private func didApplyMutation(_ mutation: TextStorageMutation) {
+		styler.didChangeContent(in: mutation.range, delta: mutation.delta)
 	}
 }

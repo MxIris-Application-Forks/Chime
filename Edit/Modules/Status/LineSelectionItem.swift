@@ -1,29 +1,42 @@
 import SwiftUI
 
+import TextSystem
 import Theme
 
+/// Display the current line section.
+///
+/// Single line: "line:column", "-"
+/// Multiple lines: "start-end", "count"
+@MainActor
 struct LineSelectionItem: View {
-	@Environment(\.theme) private var theme
-	@Environment(\.controlActiveState) private var controlActiveState
-	@Environment(\.colorScheme) private var colorScheme
+	@Environment(SelectionViewModel.self) private var model
 
-	private var context: Theme.Context {
-		.init(controlActiveState: controlActiveState, hover: false, colorScheme: colorScheme)
+	private var count: String {
+		switch model.lineSelection {
+		case .single:
+			return "-"
+		case let .multiple(start: start, end: end):
+			let count = end - start + 1
+
+			return String(count)
+		}
+	}
+
+	private var span: String {
+		switch model.lineSelection {
+		case let .single(index: index, column: column):
+			"\(index):\(column)"
+		case let .multiple(start: start, end: end):
+			"\(start)-\(end)"
+		}
 	}
 
 	var body: some View {
-		HStack(spacing: 1.0) {
-			StatusItem(style: .leading) {
-				Text("Line")
-			}
-			StatusItem(style: .middle) {
-				Text("0-0")
-			}
-			StatusItem(style: .trailing) {
-				Text("3")
-			}
-		}
-		.font(Font(theme.font(for: .statusLabel, context: context)))
+		LabelledTwoPartItem(
+			"Line",
+			spanPair: (span, span),
+			countPair: (count, count)
+		)
 	}
 }
 

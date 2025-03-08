@@ -1,4 +1,7 @@
-import Cocoa
+#if canImport(AppKit) && !targetEnvironment(macCatalyst)
+import ThemePark
+
+import AppKit
 
 // From: https://github.com/ChimeHQ/Dusk
 
@@ -31,3 +34,5 @@ extension NSAppearance {
 		}
 	}
 }
+
+#endif

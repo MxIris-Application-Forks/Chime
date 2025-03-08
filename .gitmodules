@@ -1,3 +1,21 @@
 [submodule "submodules/chime-swift"]
 	path = submodules/chime-swift
 	url = git@github.com:ChimeHQ/chime-swift.git
+[submodule "submodules/chime-clojure"]
+	path = submodules/chime-clojure
+	url = git@github.com:ChimeHQ/chime-clojure.git
+[submodule "submodules/chime-elixir"]
+	path = submodules/chime-elixir
+	url = git@github.com:ChimeHQ/chime-elixir.git
+[submodule "submodules/chime-go"]
+	path = submodules/chime-go
+	url = git@github.com:ChimeHQ/chime-go.git
+[submodule "submodules/chime-python"]
+	path = submodules/chime-python
+	url = git@github.com:ChimeHQ/chime-python.git
+[submodule "submodules/chime-ruby"]
+	path = submodules/chime-ruby
+	url = git@github.com:ChimeHQ/chime-ruby.git
+[submodule "submodules/chime-rust"]
+	path = submodules/chime-rust
+	url = git@github.com:ChimeHQ/chime-rust.git

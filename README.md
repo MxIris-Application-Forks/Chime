@@ -1,7 +1,15 @@
+<div align="center">
+
+[![Build Status][build status badge]][build status]
+[![Documentation][documentation badge]][documentation]
+[![Matrix][matrix badge]][matrix]
+
+</div>
+
 # Chime
 An editor for macOS
 
-Download the latest release on the [website][download].
+An alpha of 3.0 is available in [releases][releases]. The more stable, but closed-source 2.x version is available on the [website][download].
 
 Goals:
 - develop modular, open source components
@@ -15,15 +23,39 @@ Features:
 - [editorconfig](https://editorconfig.org)
 - [extensions][chimekit]
 - file navigator
-- syntax highlighting (driven by tree-sitter and LSP)
-- structure highlighting
+- Quick Look Preview extension
 - semantic symbol information
+- Shortcuts extension (text highlighting)
+- structure highlighting
+- syntax highlighting (driven by tree-sitter and LSP)
 - textual/symbolic quick open
 - UI theming
 
+## Usage
+
+To install Chime's Quick Look Preview extension and Shortcuts, you must do two things:
+
+- Launch the app
+- Select a theme from Chime > Settings
+
+After that, you can quit and not touch it again. However, to get automatic updates, you must also re-launch the app from time to time. But that's, of course, totally optional.
+
+## Extensions
+
+Chime has an extension system, backed by [ChimeKit][chimekit]. Because of limitations in how [ExtensionKit](https://developer.apple.com/documentation/extensionkit) can install extensions, these are also bundled into the application itself.
+
+- [Clojure](https://github.com/ChimeHQ/chime-clojure)
+- [Elixir](https://github.com/ChimeHQ/chime-elixir)
+- [Go](https://github.com/ChimeHQ/chime-go)
+- [Markdown](https://github.com/ChimeHQ/chime-markdown)
+- [Python](https://github.com/ChimeHQ/chime-python)
+- [Ruby](https://github.com/ChimeHQ/chime-ruby)
+- [Rust](https://github.com/ChimeHQ/chime-rust)
+- [Swift](https://github.com/ChimeHQ/chime-swift)
+
 ## Project State
 
-The code in this repo should be considered **non-functional** right now. If you want to use Chime, you can [download][download] the currently released version.
+Chime, as an editor, should be considered mostly **non-functional** right now. If you want to use it in that capacity, you can [download][download] the current stable version. However, the Quick Look Preview extension exists to help expose real, useful features of this project. You can check that out via [releases][releases].
 
 Chime used to be commercial, but is now free. It built up some pretty significant cruft over time. In particular, the core UI application architecture is just in a bad state. It is also quite complex to build. So, I've opted to re-implement that core and pull in parts as appropriate. I'll be putting an emphasis on extracting components into packages as I go. A fitting rebirth, I would say.
 
@@ -31,11 +63,10 @@ Chime used to be commercial, but is now free. It built up some pretty significan
 
 It is always a good idea to **discuss** before taking on a significant task. That said, I have a strong bias towards enthusiasm. If you are excited about doing something, I'll do my best to get out of your way.
 
-The project is [internally documented](Edit/Chime.docc) with [DocC](https://www.swift.org/documentation/docc/#). The docs contains details about getting started, structure, and internal systems/behaviors.
+The project is [internally documented][documentation] with [DocC](https://www.swift.org/documentation/docc/#). The docs contains details about getting started, structure, and internal systems/behaviors. Both [Matrix][matrix] and [Discord][discord] are available for live help, but GitHub issues/discussions is preferred.
 
 There are a few areas that would make for excellent targets though, if you really feel so inclined.
 
-- I'd love to expand on more [universal theme support](https://github.com/chimeHQ/ThemePark)
 - The text search system is bad and I'd love to build something better
 - The view-based [extension system][chimekit] could really use some more attention
 - I'd like to finish migrating the preferences to SwiftUI
@@ -46,7 +77,7 @@ By participating in this project you agree to abide by the [Contributor Code of 
 
 ### Building
 
-**Note**: requires Xcode 15 and macOS 14
+**Note**: requires Xcode 16 and macOS 14
 
 - clone the repo
 - `git submodule update --init --recursive`
@@ -76,8 +107,7 @@ Chime is a reasonably complex project. It's bound to run into bugs in Apple fram
 - FB12094161: System Settings extension approval system does not appear to work
 - FB11716027: EXAppExtensionBrowserViewController duplicate apps
 - FB11748287: Static metadata for extension available in AppExtensionIdentity
-- FB13384096: Package with non-Swift target fails to build unless explicitly linked
-- [Add macOS 14 (Sonoma) Runner Image](https://github.com/actions/runner-images/issues/7508)
+- FB14262567: Dupilcate entries for static libraries that link against SPM modules
 
 ## Other Notable Projects
 
@@ -88,4 +118,12 @@ Chime is a reasonably complex project. It's bound to run into bugs in Apple fram
 - [Nova](https://nova.app)
 
 [download]: https://www.chimehq.com/download
+[releases]: https://github.com/ChimeHQ/Chime/releases
 [chimekit]: https://github.com/ChimeHQ/ChimeKit
+[build status]: https://github.com/ChimeHQ/Chime/actions
+[build status badge]: https://github.com/ChimeHQ/Chime/workflows/CI/badge.svg
+[documentation]: https://chimehq.github.io/Chime/documentation/chime/
+[documentation badge]: https://img.shields.io/badge/Documentation-DocC-blue
+[matrix]: https://matrix.to/#/%23chimehq%3Amatrix.org
+[matrix badge]: https://img.shields.io/matrix/chimehq%3Amatrix.org?label=Matrix
+[discord]: https://discord.gg/esFpX6sErJ

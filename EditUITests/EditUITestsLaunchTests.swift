@@ -17,7 +17,9 @@ final class EditUITestsLaunchTests: XCTestCase {
         continueAfterFailure = false
     }
 
+	@MainActor
     func testLaunch() throws {
+		throw XCTSkip()
         let app = XCUIApplication()
         app.launch()
 

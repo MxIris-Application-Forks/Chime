@@ -1,34 +1,52 @@
 import Foundation
 
 import SwiftTreeSitter
+import TextFormation
 
 enum LanguageProfileError: Error {
 	case treeSitterUnsupported
 	case resourceURLMissing
 }
 
-public struct LanguageProfile: Sendable {
+public struct LanguageProfile {
 	public let name: String
 	public let language: SwiftTreeSitter.Language?
 	public let bundleName: String?
+	public let mutationFilter: NewFilter
 
-	public init(name: String, language: SwiftTreeSitter.Language?, bundleName: String?) {
+	public init(name: String, language: SwiftTreeSitter.Language?, bundleName: String?, mutationFilter: NewFilter) {
 		self.name = name
 		self.language = language
 		self.bundleName = bundleName
+		self.mutationFilter = mutationFilter
 	}
 
-	public init(name: String, language: SwiftTreeSitter.Language?) {
+	public init(name: String, language: SwiftTreeSitter.Language?, mutationFilter: NewFilter) {
 		let bundleName = "TreeSitter\(name)_TreeSitter\(name)"
 
 		self.name = name
 		self.language = language
 		self.bundleName = bundleName
+		self.mutationFilter = mutationFilter
+	}
+
+	public init(_ rootLanguage: RootLanguage, language: SwiftTreeSitter.Language?, mutationFilter: NewFilter) {
+		let name = rootLanguage.rawValue
+		let bundleName = "TreeSitter\(name)_TreeSitter\(name)"
+
+		self.name = name
+		self.language = language
+		self.bundleName = bundleName
+		self.mutationFilter = mutationFilter
 	}
 }
 
 extension LanguageProfile {
-	public func loadLanguageConfiguration() async throws -> LanguageConfiguration {
+	public nonisolated func loadLanguageConfiguration() async throws -> LanguageConfiguration {
+		try load()
+	}
+
+	public func load() throws -> LanguageConfiguration {
 		guard
 			let language = language,
 			let bundleName = bundleName
@@ -36,21 +54,13 @@ extension LanguageProfile {
 			throw LanguageProfileError.treeSitterUnsupported
 		}
 
-		return try await withUnsafeThrowingContinuation { [language, name, bundleName] continuation in
-			DispatchQueue.global().async {
-				let result = Result(catching: {
-					let queryURL = try LanguageProfile.languageQueryDirectory(for: name, bundleName: bundleName)
+		let queryURL = try LanguageProfile.languageQueryDirectory(for: name, bundleName: bundleName)
 
-					return try LanguageConfiguration(language, name: name, queriesURL: queryURL)
-				})
-
-				continuation.resume(with: result)
-			}
-		}
+		return try LanguageConfiguration(language, name: name, queriesURL: queryURL)
 	}
 
 	private static func languageQueryDirectory(for name: String, bundleName: String) throws -> URL {
-		guard let resourceURL = Bundle.main.resourceURL else {
+		guard let resourceURL = Bundle(for: SyntaxService.self).resourceURL else {
 			throw LanguageProfileError.resourceURLMissing
 		}
 
@@ -66,8 +76,13 @@ extension LanguageProfile {
 
 		let bundleComponent = bundleName + ".bundle"
 		
-		return resourceURL
+		guard let mainResourceURL = Bundle.main.resourceURL else {
+			throw LanguageProfileError.resourceURLMissing
+		}
+
+		return mainResourceURL
 			.appending(component: bundleComponent, directoryHint: .isDirectory)
 			.appending(component: "Contents/Resources/queries", directoryHint: .isDirectory)
 	}
 }
+

@@ -1,14 +1,17 @@
 import SwiftUI
 
 import ChimeKit
+import Diagnostics
 import DocumentContent
 import Navigator
 import Theme
+import ThemePark
 import WindowTreatment
+import Utility
 
 @MainActor
 @Observable
-final class WindowStateModel {
+public final class WindowStateModel {
 	typealias SiblingProvider = () -> [WindowStateModel]
 
 	@ObservationIgnored
@@ -21,15 +24,33 @@ final class WindowStateModel {
 
 	@ObservationIgnored
 	var siblingProvider: SiblingProvider = { [] }
-	var currentTheme: Theme = Theme()
+
+	@ObservationIgnored
+	private let themeStore: ThemeStore
+
+	/// It is really gross tha this is neeeded.
+	@ObservationIgnored
+	public var window: NSWindow? {
+		didSet {
+			themeChanged()
+		}
+	}
+
+	@ObservationIgnored
+	public var themeUpdated: (Theme) -> Void = { _ in }
+
+	public private(set) var currentTheme: Theme
 	var documentContext: DocumentContext
 
 	var projectState: ProjectState? {
 		didSet { stateUpdated() }
 	}
 
-	init(context: DocumentContext) {
+	public init(context: DocumentContext, themeStore: ThemeStore) {
 		self.documentContext = context
+		self.themeStore = themeStore
+
+		self.currentTheme = ThemeStore.currentTheme ?? Theme.fallback
 	}
 
 	func windowStateChanged(_ old: WindowStateObserver.State, _ new: WindowStateObserver.State) {
@@ -48,12 +69,38 @@ final class WindowStateModel {
 		self.windowState = new
 	}
 
+	func loadTheme(with identifier: String) {
+		self.currentTheme = themeStore.theme(with: identifier)
+
+		themeChanged()
+	}
+
+	private func themeChanged() {
+		if let window {
+			let effectiveAppearance = window.effectiveAppearance
+
+			if currentTheme.supportedVariants.contains(.init(appearance: effectiveAppearance)) == false {
+				window.appearance = currentTheme.supportedVariants.first?.appearance
+			}
+		}
+
+		themeUpdated(currentTheme)
+	}
+
 	var navigatorModel: FileNavigatorModel {
 		projectState?.navigatorModel ?? FileNavigatorModel()
 	}
 
+	var diagnosticsModel: DiagnosticsModel {
+		projectState?.diagnosticsModel ?? DiagnosticsModel()
+	}
+
 	var projectContext: ProjectContext? {
 		projectState?.context
+	}
+
+	var searchActive: Bool {
+		false
 	}
 }
 
@@ -61,10 +108,6 @@ extension WindowStateModel {
 	private func stateUpdated() {
 		print("project state updated")
 		projectContextUpdated()
-
-		let value = Unmanaged.passUnretained(navigatorModel).toOpaque()
-
-		print("nav model: ", value)
 	}
 
 	private func projectContextUpdated() {

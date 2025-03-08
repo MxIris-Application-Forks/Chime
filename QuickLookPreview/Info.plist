@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionAttributes</key>
+		<dict>
+			<key>QLIsDataBasedPreview</key>
+			<false/>
+			<key>QLSupportedContentTypes</key>
+			<array>
+				<string>public.c-header</string>
+				<string>public.c-source</string>
+				<string>public.css</string>
+				<string>org.clojure.source</string>
+				<string>org.cocoapods.specification</string>
+				<string>org.elixir-lang.source</string>
+				<string>dev.go.go-source</string>
+				<string>org.golang.go-script</string>
+				<string>dev.go.go-module</string>
+				<string>dev.go.go-work</string>
+				<string>dev.go.go-sum</string>
+				<string>public.html</string>
+				<string>public.json</string>
+				<string>org.ocaml.ocaml</string>
+				<string>org.ocaml.ocaml-interface</string>
+				<string>public.python-script</string>
+				<string>public.ruby-script</string>
+				<string>org.rubygems.specification</string>
+				<string>org.rust-lang.rust-script</string>
+				<string>public.shell-script</string>
+				<string>public.swift-source</string>
+				<string>com.netscape.javascript-source</string>
+				<string>org.typescriptlang.source</string>
+			</array>
+			<key>QLSupportsSearchableItems</key>
+			<false/>
+		</dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.quicklook.preview</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).PreviewViewController</string>
+	</dict>
+</dict>
+</plist>

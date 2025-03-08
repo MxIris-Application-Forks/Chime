@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"  xmlns:dc="http://purl.org/dc/elements/1.1/">
+	<channel>
+		<title>Chime Changelog</title>
+		<link>https://updates.chimehq.com/com.chimehq.Edit/appcast.xml</link>
+		<description>Most recent changes with links to updates.</description>
+		<item>
+			<title>Version 3.0.0</title>
+			<description sparkle:format="plain-text">
+Features:
+- Initial 3.0.0 alpha release
+
+Improvments:
+
+Fixes:
+			</description>
+			<sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+			<sparkle:channel>beta</sparkle:channel>
+			<sparkle:version>200</sparkle:version>
+			<sparkle:shortVersionString>3.0.0</sparkle:shortVersionString>
+			<pubDate>Sun, 12 May 2024 14:57:51 -0400</pubDate>
+			<enclosure url="https://github.com/ChimeHQ/Chime/releases/download/200/Chime.zip"
+				sparkle:edSignature="ODm8dAt9G0q3huLy1HXLd1ZNdJK/3mRhiNJzmU0y5tYQJqUJOs+F8x6Xlp8Jyiq8qW7EPaufc+d1iUMyx+5DCQ=="
+				length="7371742"
+				type="application/octet-stream" />
+		</item>
+		<item>
+			<title>Version 3.0.0</title>
+			<description sparkle:format="plain-text">
+Features:
+- Shortcuts support for text highlighting
+
+Improvments:
+
+Fixes:
+- Themes that do not support the current system color scheme could potentially mis-color text in the Preview and Intents extensions
+			</description>
+			<sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+			<sparkle:channel>beta</sparkle:channel>
+			<sparkle:version>201</sparkle:version>
+			<sparkle:shortVersionString>3.0.0</sparkle:shortVersionString>
+			<pubDate>Wed, 15 May 2024 08:57:31 -0400</pubDate>
+			<enclosure url="https://github.com/ChimeHQ/Chime/releases/download/201/Chime.zip"
+				sparkle:edSignature="m6T4DmzSkFVuuGG2djfLPXeXW2q6myVA9yirSIrCUHodtuwUrKNcgzseLT6km4Zsgt1gvLBjiuICqB5A4lDdDg=="
+				length="7452070"
+				type="application/octet-stream" />
+		</item>
+		<item>
+			<title>Version 3.0.0</title>
+			<description sparkle:format="plain-text">
+Features:
+- Encorporating language support/extensions for Clojure, Elixir, Go, Python, Rust
+
+Improvments:
+- Use TitlebarClickAwareWindow from WindowTreatment library by @McNight
+
+Fixes:
+			</description>
+			<sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+			<sparkle:channel>beta</sparkle:channel>
+			<sparkle:version>202</sparkle:version>
+			<sparkle:shortVersionString>3.0.0</sparkle:shortVersionString>
+			<pubDate>Thu, 11 Jul 2024 14:00:54 -0400</pubDate>
+			<enclosure url="https://github.com/ChimeHQ/Chime/releases/download/202/Chime.zip"
+				sparkle:edSignature="CumkTTEzjY4MxFF8D+/dqyFtXNWEpnSPAMPAOvPiaDhSX6nsWBrKgO2sDz7hb9kCgeR5gZ/DPjewh5iWTaqRBg=="
+				length="12112599"
+				type="application/octet-stream" />
+		</item>
+		<item>
+			<title>Version 3.0.0</title>
+			<description sparkle:format="plain-text">
+Features:
+
+Improvments:
+- Moves to a new version of ThemePark for big efficiency and correctness improvments to theme management
+- Stores current theme information in a shared suite
+
+Fixes:
+			</description>
+			<sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+			<sparkle:channel>beta</sparkle:channel>
+			<sparkle:version>203</sparkle:version>
+			<sparkle:shortVersionString>3.0.0</sparkle:shortVersionString>
+			<pubDate>Fri, 19 Jul 2024 08:08:09 -0400</pubDate>
+			<enclosure url="https://github.com/ChimeHQ/Chime/releases/download/203/Chime.zip"
+				sparkle:edSignature="QZUSLJ7W91HKGSkTHNQBagQVYvxuTIF4cpOmaKyQTTYE4dy6pmq6LjF45HHVauAPFuc2CrtM6sRv5mEbo7aDDQ=="
+				length="12094958"
+				type="application/octet-stream" />
+		</item>
+		<item>
+			<title>Version 3.0.0</title>
+			<description sparkle:format="plain-text">
+Features:
+- Add support to Rust by @unnamedd in #22
+- Add support to HTML by @unnamedd in #23
+- Add support for CSS by @unnamedd in #24
+- Add support to JSON by @unnamedd in #25
+- Add support for JavaScript by @unnamedd in #26
+- Add support for TypeScript
+
+Improvments:
+- Incorporate the newest version of Neon
+
+Fixes:
+- Address an issue where HTML was being rendered instead of displayed as text
+			</description>
+			<sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+			<sparkle:channel>beta</sparkle:channel>
+			<sparkle:version>204</sparkle:version>
+			<sparkle:shortVersionString>3.0.0</sparkle:shortVersionString>
+			<pubDate>Tue, 17 Dec 2024 07:03:42 -0500</pubDate>
+			<enclosure url="https://github.com/ChimeHQ/Chime/releases/download/204/Chime.zip"
+				sparkle:edSignature="qu01fg0f5l4hYaWyHoYwImxIX+6Rx8xaluj/p+P4EWeo+1ukIwuC0R64keTT5mQSfZCjMLGP/wXMOCiPoTGoBg=="
+				length="13161368"
+				type="application/octet-stream" />
+		</item>
+		<item>
+			<title>Version 3.0.0</title>
+			<description sparkle:format="plain-text">
+Features:
+- Editor component is now functional (but not good)
+- Multi-cursor support
+
+Improvments:
+- Highlighting behavior is significantly improved, especially when editing
+			</description>
+			<sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+			<sparkle:channel>beta</sparkle:channel>
+			<sparkle:version>205</sparkle:version>
+			<sparkle:shortVersionString>3.0.0</sparkle:shortVersionString>
+			<pubDate>Mon, 24 Feb 2025 15:03:14 -0500</pubDate>
+			<enclosure url="https://github.com/ChimeHQ/Chime/releases/download/205/Chime.zip"
+				sparkle:edSignature="d9WJ4ZqEVzKUHV/ob78SqaM+gZlVHToegmnHrEBOH2TZVIoIeZlQd8WhCgbOQ34dVEVzXSLDcg5kiNxSDxCgCg=="
+				length="13460016"
+				type="application/octet-stream" />
+		</item>
+	</channel>
+</rss>

@@ -1,141 +1,95 @@
 import Foundation
 import SwiftUI
 
-import ColorToolbox
+import ThemePark
 import Utility
 
-public struct ThemeKey: EnvironmentKey {
-	public static let defaultValue = Theme()
-}
+public struct Theme {
+	public enum Source: String, Codable, Sendable {
+		case chime
+		case xcode
+		case bbedit
+		case textmate
 
-extension EnvironmentValues {
-	public var theme: Theme {
-		get { self[ThemeKey.self] }
-		set { self[ThemeKey.self] = newValue }
-	}
-}
-
-public struct Theme: Hashable, Sendable {
-	public enum Target: Hashable, Sendable {
-		case source
-		case insertionPoint
-		case background
-
-		case statusBackground
-		case statusLabel
-
-		case syntaxSpecifier(String)
-	}
-
-	public enum ControlState {
-		case active
-		case inactive
-		case hover
-
-		init(controlActiveState: ControlActiveState) {
-			switch controlActiveState {
-			case .active, .key:
-				self = .active
-			case .inactive:
-				self = .inactive
-			@unknown default:
-				self = .active
+		public var name: String {
+			switch self {
+			case .chime: "Chime"
+			case .xcode: "Xcode"
+			case .bbedit: "BBEdit"
+			case .textmate: "TextMate"
 			}
 		}
 	}
 
-	public struct Context {
-		public var controlActiveState: ControlActiveState
-		public var hover: Bool
-		public var colorScheme: ColorScheme
+	public struct Identity: Hashable, Codable, Sendable {
+		public let source: Source
+		public let name: String
 
-		public init(controlActiveState: ControlActiveState = .active, hover: Bool = false, colorScheme: ColorScheme) {
-			self.controlActiveState = controlActiveState
-			self.hover = hover
-			self.colorScheme = colorScheme
+		public var storageString: String {
+			"\(name).\(source)"
+		}
+
+		public init(source: Source, name: String) {
+			self.source = source
+			self.name = name
+		}
+		public init?(storageString: String) {
+			let components = storageString.components(separatedBy: ".")
+			guard components.count == 2 else {
+				return nil
+			}
+
+			guard let source = Theme.Source(rawValue: components[1]) else {
+				return nil
+			}
+
+			self.init(source: source, name: components[0])
 		}
 	}
 
-	public init() {
+	public let identity: Identity
+	private let internalStyler: any Styling
+
+	public init(identity: Identity, styler: any Styling) {
+		self.identity = identity
+		self.internalStyler = styler
+	}
+	
+	public var name: String {
+		identity.name
+	}
+}
+
+extension Theme: Styling {
+	public var supportedVariants: Set<ThemePark.Variant> {
+		internalStyler.supportedVariants
+	}
+	
+	public func style(for query: Query) -> ThemePark.Style {
+		internalStyler.style(for: query)
 	}
 }
 
 extension Theme {
-	public func color(for target: Target, context: Context) -> NSColor {
-		switch target {
-		case .source:
-			NSColor.textColor
-		case .insertionPoint:
-			NSColor.textColor
-		case .background:
-			NSColor.windowBackgroundColor
-		case .statusBackground:
-			NSColor.green
-		case .statusLabel:
-			NSColor.white
-		case let .syntaxSpecifier(name):
-			resolveSyntaxColor(for: name)
-		}
-	}
+	@MainActor
+	public static let fallback = Theme(
+		identity: .init(source: .chime, name: "Fallback"),
+		styler: ConstantStyler(foregroundColor: .label, backgroundColor: .windowBackgroundColor)
+	)
 
-	private func resolveSyntaxColor(for specifier: String) -> NSColor {
-		syntaxColor(for: specifier) ?? NSColor.textColor
-	}
-
-	private func syntaxColor(for name: String) -> NSColor? {
-		switch name {
-		case "type":
-			NSColor(hex: "#8FBCBB")
-		case "member.constructor", "invocation.function", "member.method":
-			NSColor(hex: "#88C0D0")
-		case "parameter", "member.property":
-			NSColor(hex: "#D8DEE9")
-		case "invocation.macro":
-			NSColor(hex: "#526B9E")
-		case "keyword.return", "keyword.function", "keyword", "keyword.loop", "keyword.include", "keyword.conditional":
-			NSColor(hex: "#81A1C1")
-		case "keyword.operator.text", "keyword.operator":
-			NSColor(hex: "#81A1C1")
-		case "label":
-			NSColor(hex: "#526B9E")
-		case "comment":
-			NSColor(hex: "#4C566A")
-		case "literal.string", "literal.regex":
-			NSColor(hex: "#A3BE8C")
-		case "literal.boolean", "literal.float", "literal.number":
-			NSColor(hex: "#B48EAD")
-		case "variable", "variable.builtin":
-			NSColor(hex: "#D8DEE9")
-		default:
-			nil
-		}
-	}
+	@MainActor
+	public static let fallbackFont: PlatformFont =
+		PlatformFont(name: "SF Mono", size: 12.0) ?? .monospacedSystemFont(ofSize: 12.0, weight: .regular)
 }
 
 extension Theme {
-	private var defaultFont: NSFont {
-		NSFont(name: "SF Mono", size: 12.0) ?? .monospacedSystemFont(ofSize: 12.0, weight: .regular)
-	}
+	@MainActor
+	public func typingAttributes(tabWidth: Int, context: Query.Context) -> [NSAttributedString.Key : Any] {
+		let query = Query(key: .syntax(.text(nil)), context: context)
 
-	public func font(for target: Target, context: Context) -> NSFont {
-		defaultFont
-	}
-}
+		let baseFont = font(for: query) ?? Self.fallbackFont
 
-extension Theme {
-	public var isDark: Bool {
-		// TODO: this is not correct...
-		guard let color = NSColor.windowBackgroundColor.usingColorSpace(.deviceRGB) else { return false }
-
-		return color.brightnessComponent < 0.5
-	}
-}
-
-extension Theme {
-	public func typingAttributes(tabWidth: Int, context: Context) -> [NSAttributedString.Key : Any] {
-		let baseFont = font(for: .source, context: context)
-
-		let charWidth = baseFont.advancementForSpaceGlyph.width
+		let charWidth = baseFont.advancementForSpaceGlyph
 		let indentationWidth = charWidth * CGFloat(tabWidth)
 
 		let style = NSParagraphStyle.with { style in
@@ -145,22 +99,9 @@ extension Theme {
 
 		return [
 			.font: baseFont,
-			.foregroundColor: color(for: .source, context: context),
+			.foregroundColor: color(for: query),
 			.paragraphStyle: style,
 		]
 	}
 }
 
-extension Theme.Context {
-	@MainActor
-	public init(window: NSWindow?) {
-		self.init(appearance: window?.appearance)
-	}
-
-	@MainActor
-	public init(appearance: NSAppearance?) {
-		let dark = appearance?.isDark == true
-
-		self.init(controlActiveState: .inactive, hover: false, colorScheme: dark ? .dark : .light)
-	}
-}

@@ -1,8 +1,8 @@
-import AppKit
 import Foundation
 
 import ChimeKit
 import DocumentContent
+import NSUI
 import TextStory
 import Theme
 
@@ -17,36 +17,21 @@ public final class TextViewSystem: NSObject {
 	private var contentVersion = 0
 	public private(set) var contentIdentity = DocumentContentIdentity()
 
-	let textView: NSTextView
+	let textView: NSUITextView
 	public private(set) var textMetrics: TextMetrics
+	public var willLayoutHandler: () -> Void = {}
+	public var didLayoutHandler: () -> Void = {}
+	public var contentReplaced: () -> Void = {}
 
-	public init(textView: NSTextView) {
+	public init(textView: NSUITextView) {
 		self.textView = textView
 		self.textMetrics = TextMetrics(storage: Storage.null())
 
 		super.init()
 
 		replaceTextStorage(TSYTextStorage())
-
-//		NotificationCenter.default.addObserver(
-//			self,
-//			selector: #selector(selectionChangedNotification),
-//			name: NSTextView.didChangeSelectionNotification,
-//			object: textView
-//		)
 	}
-
-//	deinit {
-//		NotificationCenter.default.removeObserver(self)
-//	}
 }
-
-//extension TextViewSystem {
-//	@objc
-//	private func selectionChangedNotification(_ notification: Notification) {
-//		// do a thing
-//	}
-//}
 
 extension TextViewSystem {
 	public var textLayout: TextLayout {
@@ -59,7 +44,7 @@ extension TextViewSystem {
 		Storage(
 			beginEditing: { [unowned self] in self.beginEditing() },
 			endEditing: { [unowned self] in self.endEditing() },
-			applyMutations: { [unowned self] in self.textView.applyMutations($0) },
+			applyMutation: { [unowned self] in self.textView.applyMutation($0) },
 			version: { [unowned self] in self.self.contentVersion },
 			length: { [unowned self] in self.self.length(for: $0) },
 			substring: { [unowned self] in try self.substring(range: $0, version: $1) }
@@ -67,15 +52,17 @@ extension TextViewSystem {
 	}
 
 	private func beginEditing() {
-		textView.textStorage?.beginEditing()
+		textView.nsuiTextStorage?.beginEditing()
 	}
 
 	private func endEditing() {
-		textView.textStorage?.endEditing()
+		textView.nsuiTextStorage?.endEditing()
 
 		contentVersion += 1
 
+#if os(macOS)
 		textView.didChangeText()
+#endif
 	}
 
 	private func length(for version: Version) -> Int? {
@@ -83,11 +70,11 @@ extension TextViewSystem {
 			return nil
 		}
 
-		return textView.textStorage?.length
+		return textView.nsuiTextStorage?.length
 	}
 
 	private func substring(range: NSRange, version: Version) throws -> String {
-		guard let storage = textView.textStorage else {
+		guard let storage = textView.nsuiTextStorage else {
 			throw TextStorageError.underlyingStorageInvalid
 		}
 
@@ -114,7 +101,7 @@ extension TextViewSystem {
 		TextStorageMonitor(
 			monitors: [
 				notificationMonitor,
-				indirectMetricsMonitor
+//				indirectMetricsMonitor
 			]
 		)
 	}
@@ -131,23 +118,21 @@ extension TextViewSystem {
 extension TextViewSystem {
 	public nonisolated static let textStorageMutationsKey = "mutations"
 	public nonisolated static let willApplyMutationsNotification = Notification.Name("willApplyMutationsNotification")
-	/// This is very strongly recommended to restrict events only to the actual document content you are interested in. If it is not used, you will receive events from all open documents.
+	/// It is very strongly recommended to restrict events only to the actual document content you are interested in. If it is not used, you will receive events from all open documents.
 	public nonisolated static let didApplyMutationsNotification = Notification.Name("didApplyMutationsNotification")
-	public nonisolated static let didCompleteMutationsNotification = Notification.Name("didCompleteMutationsNotification")
 
-	private func postEvent(_ named: Notification.Name, _ mutations: [TextStorageMutation]) {
+	private func postEvent(_ named: Notification.Name, _ mutation: TextStorageMutation) {
 		NotificationCenter.default.post(
 			name: named,
 			object: self,
-			userInfo: [Self.textStorageMutationsKey: mutations]
+			userInfo: [Self.textStorageMutationsKey: mutation]
 		)
 	}
 
 	private var notificationMonitor: TextStorageMonitor {
 		.init(
-			willApplyMutations: { [weak self] in self?.postEvent(Self.willApplyMutationsNotification, $0) },
-			didApplyMutations: { [weak self] in self?.postEvent(Self.didApplyMutationsNotification, $0) },
-			didCompleteMutations: { [weak self] in self?.postEvent(Self.didCompleteMutationsNotification, $0) }
+			willApplyMutation: { [weak self] in self?.postEvent(Self.willApplyMutationsNotification, $0) },
+			didApplyMutation: { [weak self] in self?.postEvent(Self.didApplyMutationsNotification, $0) }
 		)
 	}
 }
@@ -178,32 +163,49 @@ extension TextViewSystem {
 	public func reload(from url: URL, attributes: [NSAttributedString.Key: Any]) throws {
 		let options: [NSAttributedString.DocumentReadingOptionKey: Any] = [
 			.defaultAttributes: attributes,
+			.documentType: NSAttributedString.DocumentType.plain,
 		]
 
 		let storage = try TSYTextStorage(url: url, options: options, documentAttributes: nil)
 
 		replaceTextStorage(storage)
 	}
+
+	public func write(to url: URL) throws {
+		try storage.string.write(to: url, atomically: true, encoding: .utf8)
+	}
+
+	public func themeChanged(attributes: [NSAttributedString.Key: Any]) {
+		guard let storage = textView.nsuiTextStorage else {
+			fatalError("")
+		}
+
+		storage.beginEditing()
+		storage.setAttributes(attributes, range: storage.fullRange)
+		storage.endEditing()
+	}
 }
 
-//extension TextViewSystem: NSTextViewDelegate {
-//	public func textView(_ textView: NSTextView, shouldChangeTextIn affectedCharRange: NSRange, replacementString: String?) -> Bool {
-//		precondition(textView === self.textView)
-//
-//		return shouldChangeText(in: affectedCharRange, replacement: replacementString)
-//	}
-//
-//	public func shouldChangeText(in range: NSRange, replacement: String?) -> Bool {
-//		return true
-//	}
-//}
-
 extension TextViewSystem: TSYTextStorageDelegate {
+#if os(macOS)
 	public nonisolated func textStorage(_ textStorage: TSYTextStorage, doubleClickRangeForLocation location: UInt) -> NSRange {
 		textStorage.internalStorage.doubleClick(at: Int(location))
 	}
 
 	public nonisolated func textStorage(_ textStorage: TSYTextStorage, nextWordIndexFromLocation location: UInt, direction forward: Bool) -> UInt {
 		UInt(textStorage.internalStorage.nextWord(from: Int(location), forward: forward))
+	}
+#endif
+
+	public nonisolated func textStorageWillCompleteProcessingEdit(_ textStorage: TSYTextStorage) {
+		MainActor.assumeIsolated {
+			willLayoutHandler()
+		}
+	}
+
+	public nonisolated func textStorageDidCompleteProcessingEdit(_ textStorage: TSYTextStorage) {
+		MainActor.assumeIsolated {
+			didLayoutHandler()
+		}
 	}
 }

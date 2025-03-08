@@ -26,7 +26,7 @@ extension TextTarget {
 	}
 }
 
-
+/// Provides semantic information about text.
 @MainActor
 public final class SyntaxService {
 	private enum State {
@@ -36,7 +36,7 @@ public final class SyntaxService {
 
 	private let logger = Logger(type: SyntaxService.self)
 	private var state = State.inactive {
-		didSet { invalidate() }
+		didSet { invalidate(.all) }
 	}
 
 	private let languageDataStore: LanguageDataStore
@@ -57,8 +57,8 @@ public final class SyntaxService {
 		setUpClient(with: to.uti)
 	}
 
-	private func invalidate() {
-		invalidationHandler(.all)
+	private func invalidate(_ target: TextTarget) {
+		invalidationHandler(target)
 	}
 
 	private func setUpClient(with utType: UTType) {
@@ -69,10 +69,11 @@ public final class SyntaxService {
 		guard profile.language != nil else { return }
 
 		let config = TreeSitterClient.Configuration(
-			languageProvider: languageDataStore.languageConfiguration(with:),
+			languageProvider: { [languageDataStore] in languageDataStore.languageConfiguration(with: $0) },
 			contentProvider: { [textSystem] in textSystem.storage.layerContent(for: $0) },
+			contentSnapshopProvider: { [textSystem] in textSystem.storage.layerContentSnapshot(for: $0) },
 			lengthProvider: { [textSystem] in textSystem.storage.currentLength },
-			invalidationHandler: { [unowned self] in self.invalidationHandler(.set($0)) },
+			invalidationHandler: { [unowned self] in self.invalidate(.set($0)) },
 			locationTransformer: { [textSystem] in textSystem.textMetrics.locationTransformer($0) }
 		)
 
@@ -93,9 +94,8 @@ public final class SyntaxService {
 
 	public var storageMonitor: TextStorageMonitor {
 		.init(
-			willApplyMutations: { self.willApplyMutations($0) },
-			didApplyMutations: { self.didApplyMutations($0) },
-			didCompleteMutations: { _ in }
+			willApplyMutation: { self.willApplyMutation($0) },
+			didApplyMutation: { self.didApplyMutation($0) }
 		)
 	}
 	
@@ -109,25 +109,23 @@ public final class SyntaxService {
 	}
 
 	public func languageConfigurationChanged(for name: String) {
+		logger.info("Language configuration changed for \(name, privacy: .public)")
+		
 		treeSitterClient?.languageConfigurationChanged(for: name)
 	}
 }
 
 extension SyntaxService {
-	private func willApplyMutations(_ mutations: [TextStorageMutation]) {
+	private func willApplyMutation(_ mutation: TextStorageMutation) {
 		guard let client = treeSitterClient else { return }
 
-		for mutation in mutations.flatMap({ $0.stringMutations}) {
-			client.willChangeContent(in: mutation.range)
-		}
+		client.willChangeContent(in: mutation.range)
 	}
 
-	private func didApplyMutations(_ mutations: [TextStorageMutation]) {
+	private func didApplyMutation(_ mutation: TextStorageMutation) {
 		guard let client = treeSitterClient else { return }
 
-		for mutation in mutations.flatMap({ $0.stringMutations}) {
-			client.didChangeContent(in: mutation.range, delta: mutation.delta)
-		}
+		client.didChangeContent(in: mutation.range, delta: mutation.delta)
 	}
 }
 
@@ -141,52 +139,13 @@ extension SyntaxService {
 		return TreeSitterClient.ClientQueryParams(range: range, textProvider: textProvider, mode: .optional)
 	}
 
-	private static let highlightsMap: [String: String] = [
-		"keyword": "keyword",
-		"include": "keyword.include",
-		"keyword.return": "keyword.return",
-		"keyword.function": "keyword.function",
-		"keyword.operator": "keyword.operator.text",
-		"operator": "keyword.operator",
-		"conditional": "keyword.conditional",
-		"repeat": "keyword.loop",
-		"punctuation.special": "keyword.operator.text",
-		"punctuation.delimiter": "keyword.operator.text",
-
-		"type": "type",
-
-		"string": "literal.string",
-		"number": "literal.number",
-		"float": "literal.float",
-		"boolean": "literal.boolean",
-		"string.regex": "literal.regex",
-		"text.literal": "literal.string",
-		"string.escape": "literal.string.escape",
-		"text.uri": "literal.string.uri",
-		"string.uri": "literal.string.uri",
-
-		"variable": "variable",
-		"variable.builtin": "variable.built-in",
-
-		"method": "member.function",
-		"constructor": "member.constructor",
-		"property": "member.property",
-
-		"parameter": "parameter",
-		"function": "function",
-		"function.call": "invocation.function",
-		"function.macro": "invocation.macro",
-
-		"label": "label",
-		"text.reference": "label",
-	]
-
 	public var tokenProvider: TokenProvider {
 		TokenProvider(
 			syncValue: { range in
 				guard let client = self.treeSitterClient else {
-					return TokenApplication.noChange
+					return nil
 				}
+
 
 				do {
 					let queryParams = try self.highlightsQueryParams(for: range)
@@ -194,9 +153,7 @@ extension SyntaxService {
 						return nil
 					}
 
-					print("primary sync")
-
-					return TokenApplication(namedRanges: namedRanges, nameMap: Self.highlightsMap, range: range)
+					return TokenApplication(namedRanges: namedRanges, range: range)
 				} catch {
 					self.logger.warning("Failed to get highlighting: \(error)")
 
@@ -210,11 +167,9 @@ extension SyntaxService {
 
 				do {
 					let queryParams = try self.highlightsQueryParams(for: range)
-					let namedRanges = try await client.highlightsProvider.mainActorAsync(queryParams)
+					let namedRanges = try await client.highlightsProvider.async(queryParams)
 
-					print("primary async")
-
-					return TokenApplication(namedRanges: namedRanges, nameMap: Self.highlightsMap, range: range)
+					return TokenApplication(namedRanges: namedRanges, range: range)
 				} catch {
 					self.logger.warning("Failed to get highlighting: \(error)")
 

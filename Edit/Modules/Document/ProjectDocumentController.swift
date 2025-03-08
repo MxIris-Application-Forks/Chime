@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 import ContainedDocument
 import ChimeKit
 import ProjectWindow
+import Theme
 
 public final class ProjectDocumentController: ContainedDocumentController<Project> {
 	typealias InternalDocument = any ProjectDocument
@@ -17,8 +18,11 @@ public final class ProjectDocumentController: ContainedDocumentController<Projec
 	public var documentWillOpenHandler: (any ProjectDocument) -> Void = { _ in }
 	public var documentDidOpenHandler: (any ProjectDocument) -> Void = { _ in }
 	public var documentWillCloseHandler: (any ProjectDocument) -> Void = { _ in }
+	public let themeStore: ThemeStore
 
-	public override init() {
+	public init(themeStore: ThemeStore) {
+		self.themeStore = themeStore
+		
 		super.init()
 	}
 	
@@ -255,7 +259,7 @@ extension ProjectDocumentController {
 		}
 	}
 
-	private func getProject(for url: URL) -> Project? {
+	public func getProject(for url: URL) -> Project? {
 		return projects.values.first(where: { url.path.hasPrefix($0.url.path) })
 	}
 

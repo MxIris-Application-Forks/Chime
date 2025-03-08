@@ -4,30 +4,39 @@ import SwiftUI
 import DocumentContent
 import Status
 import Theme
+import ThemePark
 import UIUtility
 
+@MainActor
 struct EditorContent<Content: View>: View {
 	@Environment(EditorStateModel.self) private var model
 	@Environment(\.theme) private var theme
-	@Environment(\.controlActiveState) private var controlActiveState
-	@Environment(\.colorScheme) private var colorScheme
+	@Environment(\.styleQueryContext) private var context
+
 	let content: Content
 
 	init(_ content: () -> Content) {
 		self.content = content()
 	}
 
-	private var context: Theme.Context {
-		.init(controlActiveState: controlActiveState, hover: false, colorScheme: colorScheme)
+	private var backgroundColor: PlatformColor {
+		theme.style(for: .init(key: .editor(.background), context: context)).color
 	}
 
 	// also does not explicitly ignore safe areas, which ensures the titlebar is respected
 	var body: some View {
 		ZStack(alignment: .bottomTrailing) {
 			content
-			StatusBar()
+			if model.statusBarVisible {
+				StatusBar()
+					.transition(.move(edge: .bottom))
+			}
 		}
-		.background(Color(theme.color(for: .background, context: context)))
+		.animation(.default, value: model.statusBarVisible)
+		.themeSensitive()
+		.background(Color(backgroundColor))
 		.environment(\.documentCursors, model.cursors)
+		.environment(\.editorVisibleRect, model.visibleFrame)
+		.environment(\.statusBarPadding, model.contentInsets)
 	}
 }

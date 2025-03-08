@@ -5,6 +5,7 @@ import DocumentContent
 import TextSystem
 import Neon
 import Theme
+import ThemePark
 
 final class LineNumberViewController: NSViewController {
 	private var didChangeObserver: NSObjectProtocol?
@@ -19,6 +20,9 @@ final class LineNumberViewController: NSViewController {
 
 	private let textSystem: TextViewSystem
 	private var selectedRanges = [NSRange]()
+	private var normalLineAttributes: [NSAttributedString.Key: Any] = [:]
+	private var selectedLineAttributes: [NSAttributedString.Key: Any] = [:]
+	private var emptyLineAttributes: [NSAttributedString.Key: Any] = [:]
 
 	init(textSystem: TextViewSystem) {
 		self.textSystem = textSystem
@@ -43,25 +47,20 @@ final class LineNumberViewController: NSViewController {
 		textSystem.textMetrics.valueProvider
 	}
 
-//	override func loadView() {
-//		// inject a hidden view into the hierarchy to observe SwiftUI changes
-//
-//		let observingView = Text("")
-//			.hidden()
-//			.onThemeChange { [weak self] in self?.updateTheme($0, context: $1) }
-////			.onDocumentContentChange { [weak self] in self?.contentChanged($0) }
-//			.onDocumentCursorsChange { [weak self] in self?.cursorsChanged($0) }
-//			.onTextMetricsInvalidation { [weak self] in self?.invalidate($0.nsRangeView) }
-//
-//		let hiddenView = NSHostingView(rootView: observingView)
-//
-//		regionView.addSubview(hiddenView)
-//
-//		self.view = regionView
-//	}
-
 	override func loadView() {
-		self.view = NSView()
+		// inject a hidden view into the hierarchy to observe SwiftUI changes
+
+		let observingView = Text("")
+			.hidden()
+			.onThemeChange { [weak self] in self?.updateTheme($0, context: $1) }
+			.onDocumentCursorsChange { [weak self] in self?.cursorsChanged($0) }
+			.onTextMetricsInvalidation { [weak self] in self?.invalidate($0.nsRangeView) }
+
+		let hiddenView = NSHostingView(rootView: observingView)
+
+		regionView.addSubview(hiddenView)
+
+		self.view = regionView
 	}
 
 	public override var representedObject: Any? {
@@ -87,34 +86,55 @@ final class LineNumberViewController: NSViewController {
 			height: height
 		)
 
-//		print("invaliding: \(invalidRect), \(regionView.visibleRect)")
-
 		updateThickness()
 
-		regionView.setNeedsDisplay(invalidRect)
+		invalidate(invalidRect)
 	}
 }
 
 extension LineNumberViewController {
-	private func updateTheme(_ theme: Theme, context: Theme.Context) {
-//		print("theme change?")
+	private func updateTheme(_ theme: Theme, context: Query.Context) {
+		let baseStyle = theme.style(for: .gutter(.label), context: context)
+		let baseColor = baseStyle.color
+		let baseFont = baseStyle.font ?? Theme.fallbackFont
+
+		normalLineAttributes = [
+			NSAttributedString.Key.foregroundColor: baseColor.emphasize(by: -0.5),
+			NSAttributedString.Key.font: baseFont,
+			NSAttributedString.Key.paragraphStyle: NSParagraphStyle.rightAligned
+		]
+
+		selectedLineAttributes = [
+			.foregroundColor: baseColor,
+			.font: baseFont,
+			.paragraphStyle: NSParagraphStyle.rightAligned
+		]
+
+		emptyLineAttributes = [
+			.foregroundColor: baseColor.emphasize(by: -0.75),
+			.font: baseFont,
+			.paragraphStyle: NSParagraphStyle.rightAligned
+		]
+
+		let fullRange = NSRange(0..<storage.currentLength)
+		invalidate([fullRange])
 	}
 
-	private func cursorsChanged(_ cursors: [Cursor]) {
+	private func cursorsChanged(_ cursors: CursorSet) {
 		let oldRanges = selectedRanges
-		self.selectedRanges = cursors.map { $0.selection }
+		self.selectedRanges = cursors.ranges
 
 		invalidate(oldRanges + selectedRanges)
-	}
-
-	private func contentChanged(_ content: DocumentContent?) {
-		self.representedObject = content
 	}
 
 	private func updateThickness() {
 		widthCalculator.maximumNumber = textSystem.textMetrics.lastLine.index
 
 		regionView.thickness = widthCalculator.requiredWidth
+	}
+
+	func invalidate(_ invalidRect: CGRect) {
+		regionView.setNeedsDisplay(invalidRect)
 	}
 }
 
@@ -134,23 +154,27 @@ extension LineNumberViewController {
 	}
 
 	private func styleForLine(_ line: Line, in range: NSRange, lastLine: Bool) -> [NSAttributedString.Key : Any] {
-		var attrs = [
-			NSAttributedString.Key.foregroundColor: NSColor.white,
-			NSAttributedString.Key.font: NSFont.systemFont(ofSize: 10.0),
-			NSAttributedString.Key.paragraphStyle: NSParagraphStyle.rightAligned
-		]
-
 		let lastPositionSelected = selectedRanges == [NSRange(location: line.max, length: 0)]
 		let cursorAtEndOfText = lastLine && lastPositionSelected
-		let selected = isRangeSelected(range)
 
-		if cursorAtEndOfText || selected {
-			attrs[.foregroundColor] = NSColor.white
-		} else if line.whitespaceOnly {
-			attrs[.foregroundColor] = NSColor.lightGray
+		if cursorAtEndOfText {
+			return selectedLineAttributes
 		}
 
-		return attrs
+		if isRangeSelected(range) {
+			return selectedLineAttributes
+		}
+
+		if line.whitespaceOnly {
+			return emptyLineAttributes
+		}
+
+		return normalLineAttributes
+	}
+
+	private func backgroundForLine(_ line: Line) -> NSColor {
+//		line.index % 2 == 0 ? .red : .blue
+		.clear
 	}
 
 	private func labelledRegions(for region: Region) -> [LabelledRegion] {
@@ -195,6 +219,7 @@ extension LineNumberViewController {
 			let last = textMetrics.lastLine.index == lineIndex
 
 			let style = styleForLine(line, in: range, lastLine: last)
+			let background = backgroundForLine(line)
 			let firstFragment = range.location == lines[lineIndex].location
 
 			let labelString = firstFragment ? "\(line.index)" : "•"
@@ -203,7 +228,7 @@ extension LineNumberViewController {
 			let fragmentRegion = Region(position: fragment.bounds.minY, size: fragment.bounds.height)
 			let labelledRegion = LabelledRegion(
 				label: label,
-				background: line.index % 2 == 0 ? .red : .blue,
+				background: background,
 				region: fragmentRegion
 			)
 

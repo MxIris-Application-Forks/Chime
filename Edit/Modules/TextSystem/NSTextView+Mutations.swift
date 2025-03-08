@@ -1,13 +1,11 @@
-import AppKit
+import NSUI
 
 import DocumentContent
 
-extension NSTextView {
-	func applyMutations(_ mutations: [TextStorageMutation]) {
-		for mutation in mutations {
-			for rangedString in mutation.stringMutations {
-				replaceCharacters(in: rangedString.range, with: rangedString.string)
-			}
-		}
+extension NSUITextView {
+	func applyMutation(_ mutation: TextStorageMutation) {
+		guard let storage = nsuiTextStorage else { fatalError() }
+
+		storage.replaceCharacters(in: mutation.range, with: mutation.string)
 	}
 }
